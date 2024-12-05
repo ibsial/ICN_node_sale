@@ -16,6 +16,25 @@ async function sendRawTx(signer: Wallet, rawTx: string) {
 function getCurrentTimestamp() {
     return Math.floor(Date.now() / 1000)
 }
+async function getWalletResult(
+    signer: Wallet,
+    tier: {
+        address: string
+        tier: string
+        count: number
+        code: string
+    }
+) {
+    try {
+        const distributor = new Contract(tier.address, distributor_abi, signer)
+        let nodesBoughtForTier = await distributor.purchasedAmountPerTier(tier.tier, signer.address)
+        console.log(`${signer.address} bought ${nodesBoughtForTier} ${tier.tier}`)
+        return BigInt(nodesBoughtForTier)
+    } catch (e: any) {
+        console.log(`${signer.address} could not check amount bought`)
+        return 0n
+    }
+}
 async function getSignature(
     signer: Wallet,
     tier: {
@@ -290,6 +309,42 @@ async function snipe() {
         await defaultSleep(0.1, false)
         j++
     }
+
+    //// AFTER THE SALE
+    while (getCurrentTimestamp() < 1733392800 + 10) {
+        await defaultSleep(10, false)
+    }
+    let k = 0
+    let totalNodes = 0n
+    for (let tierKey in tierConfig) {
+        try {
+            const signer = new Wallet(tierKey)
+        } catch (e) {
+            console.log(c.red(`INVALID PRIVATE KEY: ${tierKey}`))
+            console.log(c.red(`INVALID PRIVATE KEY: ${tierKey}`))
+            console.log(c.red(`INVALID PRIVATE KEY: ${tierKey}`))
+            continue
+        }
+        let tiers = []
+        for (let i = 0; i < tierConfig[tierKey].tiers.length; i++) {
+            tiers.push({
+                address: '0xB02EB8a7ed892F444ED7D51c73C53250Ab8d754E',
+                tier: tierConfig[tierKey].tiers[i],
+                count: tierConfig[tierKey].count[i],
+                code: tierConfig[tierKey].code
+            })
+        }
+        const arb_provider = new JsonRpcProvider(RPCs[k % RPCs.length], 42161, {
+            staticNetwork: true
+        })
+        const signer = new Wallet(tierKey, arb_provider)
+        for (let tier of tiers) {
+            let boughtNodesPerTier = await getWalletResult(signer, tier)
+            totalNodes += boughtNodesPerTier
+        }
+        k++
+    }
+    console.log(`\n\nTotal nodes bought: ${totalNodes.toString()}`)
 }
 
 snipe()
